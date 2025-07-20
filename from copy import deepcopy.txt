@@ -1,0 +1,151 @@
+from copy import deepcopy
+import time
+import torch
+from torch.cuda.amp import autocast, GradScaler
+
+# Performance optimization settings
+torch.backends.cudnn.benchmark = True  # Optimize for consistent input sizes
+torch.backends.cudnn.deterministic = False  # Allow non-deterministic for speed
+
+num_epochs = 20
+patience = 5
+best_val_loss = float('inf')
+epochs_no_improve = 0
+train_losses, val_losses = [], []
+train_accuracies, val_accuracies = [], []
+best_model = None
+
+# Mixed precision training setup
+scaler = GradScaler()
+
+print(f"Starting training for {num_epochs} epochs...")
+print(f"Training batches: {len(train_loader)}, Validation batches: {len(test_loader)}")
+print("=" * 80)
+
+for epoch in range(num_epochs):
+    epoch_start_time = time.time()
+    print(f"\n[EPOCH {epoch + 1}/{num_epochs}] Starting epoch...")
+
+    # --- Training ---
+    print(f"[EPOCH {epoch + 1}] Starting training phase...")
+    model.train()
+    train_loss, correct, total = 0.0, 0, 0
+
+    for batch_idx, (imgs, masks) in enumerate(train_loader):
+        # Reduced logging - only show progress every 25 batches
+        if batch_idx % 25 == 0:
+            print(f"[EPOCH {epoch + 1}] Training batch {batch_idx + 1}/{len(train_loader)}")
+
+        # Non-blocking transfer to GPU
+        imgs = imgs.to(device, non_blocking=True)
+        masks = masks.to(device, non_blocking=True)
+
+        optimizer.zero_grad()
+
+        # Mixed precision forward pass
+        with autocast():
+            outputs = model(imgs)['out']
+            loss = criterion(outputs, masks)
+
+        # Mixed precision backward pass
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        train_loss += loss.item()
+        
+        # Compute accuracy less frequently for speed
+        if batch_idx % 10 == 0:  # Only compute every 10 batches
+            with torch.no_grad():
+                preds = outputs.argmax(dim=1)
+                correct += (preds == masks).sum().item()
+                total += masks.numel()
+
+        # Progress indicator for longer training - reduced frequency
+        if batch_idx % 100 == 0 and batch_idx > 0:
+            current_avg_loss = train_loss / (batch_idx + 1)
+            current_acc = correct / total if total > 0 else 0
+            print(f"[EPOCH {epoch + 1}] Progress: {batch_idx + 1}/{len(train_loader)} batches, "
+                  f"Avg Loss: {current_avg_loss:.4f}, Acc: {current_acc * 100:.2f}%")
+
+    # Final accuracy calculation for the epoch
+    model.eval()
+    with torch.no_grad():
+        correct, total = 0, 0
+        for imgs, masks in train_loader:
+            imgs = imgs.to(device, non_blocking=True)
+            masks = masks.to(device, non_blocking=True)
+            with autocast():
+                outputs = model(imgs)['out']
+                preds = outputs.argmax(dim=1)
+                correct += (preds == masks).sum().item()
+                total += masks.numel()
+            # Only check first few batches for speed
+            if total > len(train_loader.dataset) * 0.1:  # 10% of data for accuracy
+                break
+
+    train_losses.append(train_loss / len(train_loader))
+    train_accuracies.append(correct / total)
+    print(f"[EPOCH {epoch + 1}] Training completed - Loss: {train_losses[-1]:.4f}, Acc: {train_accuracies[-1] * 100:.2f}%")
+
+    # --- Validation ---
+    print(f"[EPOCH {epoch + 1}] Starting validation phase...")
+    model.eval()
+    val_loss, correct, total = 0.0, 0, 0
+
+    with torch.no_grad():
+        for batch_idx, (imgs, masks) in enumerate(test_loader):
+            # Reduced logging frequency
+            if batch_idx % 20 == 0:
+                print(f"[EPOCH {epoch + 1}] Validation batch {batch_idx + 1}/{len(test_loader)}")
+
+            imgs = imgs.to(device, non_blocking=True)
+            masks = masks.to(device, non_blocking=True)
+            
+            with autocast():
+                outputs = model(imgs)['out']
+                loss = criterion(outputs, masks)
+                
+            val_loss += loss.item()
+            preds = outputs.argmax(dim=1)
+            correct += (preds == masks).sum().item()
+            total += masks.numel()
+
+    val_losses.append(val_loss / len(test_loader))
+    val_accuracies.append(correct / total)
+    print(f"[EPOCH {epoch + 1}] Validation completed - Loss: {val_losses[-1]:.4f}, Acc: {val_accuracies[-1] * 100:.2f}%")
+
+    epoch_time = time.time() - epoch_start_time
+    print(f"\n[EPOCH {epoch + 1}] SUMMARY:")
+    print(f"  Train Loss: {train_losses[-1]:.4f}, Val Loss: {val_losses[-1]:.4f}")
+    print(f"  Train Acc: {train_accuracies[-1] * 100:.2f}%, Val Acc: {val_accuracies[-1] * 100:.2f}%")
+    print(f"  Epoch completed in {epoch_time:.2f}s")
+
+    # --- Early Stopping ---
+    if val_losses[-1] < best_val_loss:
+        print(f"[EPOCH {epoch + 1}] New best validation loss: {val_losses[-1]:.4f}")
+        best_val_loss = val_losses[-1]
+        best_model = deepcopy(model.state_dict())
+        epochs_no_improve = 0
+    else:
+        epochs_no_improve += 1
+        print(f"[EPOCH {epoch + 1}] No improvement. Epochs without improvement: {epochs_no_improve}/{patience}")
+        if epochs_no_improve >= patience:
+            print(f"[EPOCH {epoch + 1}] Early stopping triggered.")
+            break
+
+    # Clear GPU cache periodically
+    if epoch % 5 == 0:
+        torch.cuda.empty_cache()
+
+    print("=" * 80)
+
+print("\nTraining completed!")
+print(f"Best validation loss: {best_val_loss:.4f}")
+print(f"Total epochs trained: {len(train_losses)}")
+
+# Load best model
+if best_model is not None:
+    print("Loading best model weights...")
+    model.load_state_dict(best_model)
+    print("Best model loaded successfully!")
