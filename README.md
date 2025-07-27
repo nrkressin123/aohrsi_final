@@ -57,8 +57,9 @@ This script is ran last in the workflow, after green roof identification has bee
 
 ## Detailed Explanation of ArcgisPro Model
 
-Through the Image classification wizard tool in arcgis pro which runs a supervised object based random trees classifier. The following images show the parameters used.
-We then classified which rooftops were green using ArcGIS Pro’s Classification Wizard. However, one major limitation is that ArcGIS doesn’t let you save the trained classification model — meaning it can’t be reused on other images. Because of this, we couldn’t apply our model to a separate test image. Instead, we performed a train/test split within the same image, dividing the labeled data to simulate a proper accuracy assessment. This allowed us to evaluate the classifier’s performance even though the model couldn’t be saved or deployed.
+Using the masked satellite image produced from the DeepLabV3+ model, we then import the data into ArcGIS Pro and use the Image classification wizard tool. This tool runs a supervised object based random trees classifier created by ESRI. The following images show the parameters we used for the classification wizard and sampling tool. 
+
+The workflow in ArcGIS Pro goes as follows: we created polygons representative of 'normal' and 'green' roofs. The number of features, and area of said features, were roughly equivalent for either class. The data we used is available in the **arcgis_data** directory. Then, we ran the Subset Features tool with a 80/20 train-test split. We then classified which rooftops were green using ArcGIS Pro’s Classification Wizard and the training data. However, one major limitation is that ArcGIS doesn’t let you save the trained classification model — meaning it can’t be reused on other images. Because of this, we couldn’t apply our model to a separate test image. Instead, we assessed the model's performance within the same image on the test datat. This allowed us to evaluate the classifier’s performance even though the exact model's hyperparameters/weights couldn’t be saved or deployed.
 
 <img width="240" height="450" alt="1" src="https://github.com/user-attachments/assets/ca77207e-3b84-4d00-b69d-642b94c2481c" />
 <img width="240" height="1000" alt="2" src="https://github.com/user-attachments/assets/763c4250-e91e-4cb5-8e20-296c7a26b6c8" />
