@@ -29,7 +29,7 @@ Workflow Summary
 ## Detailed Explanation of Scripts
 
 
-###  ‘deeplab.py’ — Semantic Segmentation
+###  ‘deeplabv3_test.py’ — Semantic Segmentation
 - Trains a DeepLabV3+ model (ResNet101 backbone) on aerial image patches.
 - Generates a binary roof mask, evaluates using accuracy, IoU, Dice, and Boundary IoU*.
 - Produces polygon features representing predicted roof footprints.
@@ -41,7 +41,7 @@ Within the green roof identification workflow, this script should be ran first. 
 Dice is similar but a bit more forgiving; and Boundary IoU focuses on how well the edges of the roofs were captured. These help evaluate the precision of the segmentation.
 
 
-###  ‘mask_raster_with_buildings.py’ — Building-Only Raster Creation
+###  ‘building_mask.py’ — Building-Only Raster Creation
 - Uses predicted building polygons to mask the input image.
 - Outputs a raster containing **only rooftop pixels**, setting other areas to 0.
 - Used as input in **ArcGIS Pro** for the green roof classification task.
