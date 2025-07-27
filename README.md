@@ -1,5 +1,5 @@
 # aohrsi_final
-# Green Roof Detection in Basel Using Deep Learning and GIS
+# Green Roof Detection in Basel, Switzerland Using Deep Learning and GIS
 Project Overview
 
 This project aims to identify **green roofs** in the city of **Basel, Switzerland**, using a combination of **semantic segmentation (DeepLabV3+), to identify building footprints, raster processing**, and **classification in ArcGIS Pro**. We applied deep learning techniques to isolate roof structures from aerial imagery and then classified those roof areas as either vegetated (green roofs) or non-vegetated. The accuracy of the classification was assessed using a spatial confusion matrix.
@@ -35,7 +35,9 @@ Workflow Summary
 - Produces polygon features representing predicted roof footprints.
 - Saves regularized output polygons and an evaluation report.
 
-  *To check how well it worked, we use several metrics: accuracy tells us how many pixels were correctly labeled; IoU checks how much the predicted rooftops overlap with the real ones;
+Within the green roof identification workflow, this script should be ran first. To run this script, first create a 'data' folder wherever your data directory is. Then, ensure that you a satellite image file titled 'basel_img1.tif' within your data directory. Further, for the model to read your training data, you also require a file titled 'building_footprints_img1.json' within the data directory. The script will predict building footprints based off of the satellite image and training data. The data files we used are available in [Sciebo] (https://uni-muenster.sciebo.de/s/JY9GKtNxNJ9s5Cw). The script will output 2 files: a predicted building footprints file titled 'predicted_blds.geojson' and a regularized version titled 'predicted_blds_regularized.geojson', both into the 'data' folder. 
+  
+*To check how well the model performed, we use several metrics: accuracy tells us how many pixels were correctly labeled; IoU checks how much the predicted rooftops overlap with the real ones;
 Dice is similar but a bit more forgiving; and Boundary IoU focuses on how well the edges of the roofs were captured. These help evaluate the precision of the segmentation.
 
 
@@ -44,15 +46,14 @@ Dice is similar but a bit more forgiving; and Boundary IoU focuses on how well t
 - Outputs a raster containing **only rooftop pixels**, setting other areas to 0.
 - Used as input in **ArcGIS Pro** for the green roof classification task.
 
+This script is ran second in the workflow. It requires the 'predicted_blds_regularized.geojson' file produced in the first script, and the satellite image file we also used in the first script. It simply extracts the raster values that fall within the predicted building polygons. It outputs a file titled 'basel_img1_masked_raster.tif' into the data directory. 
+
 ###  ‘accuracy_assessment.py’ — Classification Evaluation
 - Loads `truth` and `predicted` shapefiles from ArcGIS classification.
 - Intersects them and computes an **area-based confusion matrix**.
 - Results show how much area was correctly/incorrectly classified.
 
-###  ‘copy_import_deepcopy.py’ — Enhanced Training Loop
-- Implements **mixed precision training** with `autocast` and `GradScaler` for speed/memory efficiency.
-- Adds GPU optimization settings and early stopping.
-- Can be used in place of the original training loop in `deeplab.py`.
+This script is ran last in the workflow, after green roof identification has been performed in ArcGIS Pro. It requires two files in the 'arcgis_data' directory: a file titled 'test_data.shp', and a file titled 'predicted_data.shp'. It will then evaluate the accuracy of the predicted data versus the test data using an area intersection. The script will output a confusion matrix into the Python console. 
 
 ## Detailed Explanation of ArcgisPro Model
 
